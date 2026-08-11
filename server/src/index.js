@@ -13,6 +13,8 @@ import sessionRouter from './routes/session.js';
 import managerUsersRouter from './routes/manager-users.js';
 import accountRouter from './routes/account.js';
 
+import projectsRouter from './routes/projects.js';
+import projectMembersRouter from './routes/project-members.js';
 
 app.use(helmet());
 
@@ -53,6 +55,8 @@ app.use('/api/auth', authRouter);
 app.use('/api/auth', sessionRouter);
 app.use('/api/manager/users', managerUsersRouter);
 app.use('/api/account', accountRouter);
+app.use('/api/projects', projectsRouter);
+app.use('/api/projects', projectMembersRouter);
 
 app.use((_request, response) => {
   response.status(404).json({

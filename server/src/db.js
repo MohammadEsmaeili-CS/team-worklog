@@ -1,7 +1,10 @@
 import pg from 'pg';
 import 'dotenv/config';
 
-const { Pool } = pg;
+const { Pool, types } = pg;
+
+// PostgreSQL DATE must remain YYYY-MM-DD without timezone conversion.
+types.setTypeParser(1082, (value) => value);
 
 export const pool = new Pool({
   host: process.env.DB_HOST,
