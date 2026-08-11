@@ -49,6 +49,11 @@ function ManagerDashboard({
   const [selectedMemberIds, setSelectedMemberIds] =
     useState([]);
   const [approvalNotes, setApprovalNotes] = useState({});
+  const [passwordResetForm, setPasswordResetForm] = useState({
+  userId: '',
+  temporaryPassword: '',
+  confirmPassword: '',
+});
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState('');
@@ -252,6 +257,54 @@ function ManagerDashboard({
       setWorking(false);
     }
   }
+
+async function resetMemberPassword(event) {
+  event.preventDefault();
+
+  if (!passwordResetForm.userId) {
+    setError('ابتدا عضو موردنظر را انتخاب کنید.');
+    return;
+  }
+
+  if (passwordResetForm.temporaryPassword.length < 8) {
+    setError('رمز موقت باید حداقل 8 کاراکتر باشد.');
+    return;
+  }
+
+  if (
+    passwordResetForm.temporaryPassword !==
+    passwordResetForm.confirmPassword
+  ) {
+    setError('رمز موقت و تکرار آن یکسان نیستند.');
+    return;
+  }
+
+  setWorking(true);
+  setMessage('');
+  setError('');
+
+  try {
+   const result = await api.patch(
+  `/manager/users/${passwordResetForm.userId}/password`,
+  {
+    temporaryPassword:
+      passwordResetForm.temporaryPassword,
+  },
+);
+
+    setMessage(result.message);
+
+    setPasswordResetForm({
+      userId: '',
+      temporaryPassword: '',
+      confirmPassword: '',
+    });
+  } catch (requestError) {
+    setError(requestError.message);
+  } finally {
+    setWorking(false);
+  }
+}
 
   async function reviewEntry(entryId, decision) {
     const note = approvalNotes[entryId] ?? '';
@@ -697,6 +750,101 @@ function ManagerDashboard({
             )}
           </article>
         </section>
+
+<section className="panel-card password-reset-panel">
+  <div className="panel-heading">
+    <div>
+      <span className="eyebrow">امنیت حساب اعضا</span>
+      <h2>بازنشانی رمز عبور</h2>
+    </div>
+
+    <span className="count-badge">
+      {availableMembers.length} عضو
+    </span>
+  </div>
+
+  <form
+    className="dashboard-form"
+    onSubmit={resetMemberPassword}
+  >
+    <label>
+      عضو
+      <select
+        value={passwordResetForm.userId}
+        onChange={(event) =>
+          setPasswordResetForm((currentForm) => ({
+            ...currentForm,
+            userId: event.target.value,
+          }))
+        }
+        disabled={working}
+      >
+        <option value="">عضو را انتخاب کنید</option>
+
+        {availableMembers.map((member) => (
+          <option value={member.id} key={member.id}>
+            {member.full_name} ({member.username})
+          </option>
+        ))}
+      </select>
+    </label>
+
+    <div className="form-row">
+      <label>
+        رمز موقت جدید
+        <input
+          type="password"
+          value={passwordResetForm.temporaryPassword}
+          onChange={(event) =>
+            setPasswordResetForm((currentForm) => ({
+              ...currentForm,
+              temporaryPassword: event.target.value,
+            }))
+          }
+          minLength="8"
+          maxLength="100"
+          autoComplete="new-password"
+          placeholder="حداقل 8 کاراکتر"
+          disabled={working}
+        />
+      </label>
+
+      <label>
+        تکرار رمز موقت
+        <input
+          type="password"
+          value={passwordResetForm.confirmPassword}
+          onChange={(event) =>
+            setPasswordResetForm((currentForm) => ({
+              ...currentForm,
+              confirmPassword: event.target.value,
+            }))
+          }
+          minLength="8"
+          maxLength="100"
+          autoComplete="new-password"
+          placeholder="رمز موقت را دوباره وارد کنید"
+          disabled={working}
+        />
+      </label>
+    </div>
+
+    <p className="password-reset-help">
+      پس از بازنشانی، رمز موقت را به‌صورت خصوصی به عضو
+      بدهید. عضو باید بعد از ورود، رمز شخصی جدیدی انتخاب کند.
+    </p>
+
+    <button
+      className="primary-button full-width"
+      type="submit"
+      disabled={working || availableMembers.length === 0}
+    >
+      {working
+        ? 'در حال بازنشانی...'
+        : 'بازنشانی رمز عضو'}
+    </button>
+  </form>
+</section>
 
         <section className="panel-card entries-panel">
           <div className="panel-heading">

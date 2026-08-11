@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 
 import { pool } from '../db.js';
@@ -130,6 +131,106 @@ router.patch('/:userId/review', async (request, response) => {
 
     return response.status(500).json({
       message: 'بررسی حساب عضو انجام نشد.',
+    });
+  }
+});
+
+const resetPasswordSchema = z.object({
+  temporaryPassword: z
+    .string()
+    .min(8, 'رمز موقت باید حداقل 8 کاراکتر باشد.')
+    .max(100, 'رمز موقت بیش از حد طولانی است.'),
+});
+
+router.patch('/:userId/password', async (request, response) => {
+  const userId = Number.parseInt(request.params.userId, 10);
+
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return response.status(400).json({
+      message: 'شناسه کاربر معتبر نیست.',
+    });
+  }
+
+  const parsedBody = resetPasswordSchema.safeParse(request.body);
+
+  if (!parsedBody.success) {
+    return response.status(400).json({
+      message:
+        parsedBody.error.issues[0]?.message ||
+        'اطلاعات بازنشانی رمز معتبر نیست.',
+    });
+  }
+
+  try {
+    const userResult = await pool.query(
+      `
+        SELECT
+          id,
+          full_name,
+          username,
+          email,
+          role,
+          account_status
+        FROM users
+        WHERE id = $1
+        LIMIT 1
+      `,
+      [userId],
+    );
+
+    if (userResult.rowCount === 0) {
+      return response.status(404).json({
+        message: 'کاربر موردنظر پیدا نشد.',
+      });
+    }
+
+    const member = userResult.rows[0];
+
+    if (member.role !== 'member') {
+      return response.status(403).json({
+        message: 'رمز حساب مدیر از این بخش قابل بازنشانی نیست.',
+      });
+    }
+
+    if (member.account_status !== 'active') {
+      return response.status(409).json({
+        message: 'فقط رمز اعضای فعال قابل بازنشانی است.',
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(
+      parsedBody.data.temporaryPassword,
+      12,
+    );
+
+    const updateResult = await pool.query(
+      `
+        UPDATE users
+        SET
+          password_hash = $1,
+          must_change_password = TRUE,
+          updated_at = NOW()
+        WHERE id = $2
+        RETURNING
+          id,
+          full_name,
+          username,
+          email,
+          must_change_password
+      `,
+      [passwordHash, userId],
+    );
+
+    return response.json({
+      message:
+        'رمز عضو بازنشانی شد. عضو باید پس از ورود، رمز خود را تغییر دهد.',
+      user: updateResult.rows[0],
+    });
+  } catch (error) {
+    console.error('Manager password reset error:', error);
+
+    return response.status(500).json({
+      message: 'بازنشانی رمز عضو با خطا مواجه شد.',
     });
   }
 });

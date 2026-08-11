@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { api } from './api';
 import MemberDashboard from './components/MemberDashboard';
 import ManagerDashboard from './components/ManagerDashboard';
+import ForcedPasswordChange from './components/ForcedPasswordChange';
 import './App.css';
 
 const emptyLoginForm = {
@@ -340,6 +341,22 @@ function App() {
       </main>
     );
   }
+
+  if (user.mustChangePassword) {
+  return (
+    <ForcedPasswordChange
+      user={user}
+      onPasswordChanged={() =>
+        setUser((currentUser) => ({
+          ...currentUser,
+          mustChangePassword: false,
+        }))
+      }
+      onLogout={handleLogout}
+      logoutPending={submitting}
+    />
+  );
+}
 
   if (user.role === 'member') {
     return (
