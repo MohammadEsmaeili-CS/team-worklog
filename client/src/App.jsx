@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { api } from './api';
 import MemberDashboard from './components/MemberDashboard';
+import ManagerDashboard from './components/ManagerDashboard';
 import './App.css';
 
 const emptyLoginForm = {
@@ -341,14 +342,23 @@ function App() {
   }
 
   if (user.role === 'member') {
-  return (
-    <MemberDashboard
-      user={user}
-      onLogout={handleLogout}
-      logoutPending={submitting}
-    />
-  );
-}
+    return (
+      <MemberDashboard
+        user={user}
+        onLogout={handleLogout}
+        logoutPending={submitting}
+      />
+    );
+  }
+  if (user.role === 'manager') {
+    return (
+      <ManagerDashboard
+        user={user}
+        onLogout={handleLogout}
+        logoutPending={submitting}
+      />
+    );
+  }
 
   return (
     <main className="dashboard-shell" dir="rtl">
