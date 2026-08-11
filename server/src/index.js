@@ -15,6 +15,9 @@ import accountRouter from './routes/account.js';
 
 import projectsRouter from './routes/projects.js';
 import projectMembersRouter from './routes/project-members.js';
+import timeEntriesRouter from './routes/time-entries.js';
+import timeEntryActionsRouter from './routes/time-entry-actions.js';
+import approvalsRouter from './routes/approvals.js';
 
 app.use(helmet());
 
@@ -57,6 +60,9 @@ app.use('/api/manager/users', managerUsersRouter);
 app.use('/api/account', accountRouter);
 app.use('/api/projects', projectsRouter);
 app.use('/api/projects', projectMembersRouter);
+app.use('/api/time-entries', timeEntriesRouter);
+app.use('/api/time-entries', timeEntryActionsRouter);
+app.use('/api/approvals', approvalsRouter);
 
 app.use((_request, response) => {
   response.status(404).json({
