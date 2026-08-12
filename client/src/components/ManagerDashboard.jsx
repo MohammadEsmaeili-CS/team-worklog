@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { api } from '../api';
+import ManagerReports from './ManagerReports';
 
 const statusLabels = {
   draft: 'پیش‌نویس',
@@ -750,6 +751,8 @@ async function resetMemberPassword(event) {
             )}
           </article>
         </section>
+
+<ManagerReports timeEntries={timeEntries} />
 
 <section className="panel-card password-reset-panel">
   <div className="panel-heading">

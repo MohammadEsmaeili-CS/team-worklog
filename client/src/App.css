@@ -1649,3 +1649,138 @@
     font-size: 1.65rem;
   }
 }
+/* ========================================
+   Manager reports
+======================================== */
+
+.reports-panel {
+  margin-top: 24px;
+}
+
+.report-filters {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid #e7e9f2;
+  border-radius: 20px;
+  background: #fafbff;
+}
+
+.report-filters label {
+  display: grid;
+  gap: 8px;
+  color: #3b4255;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.report-filters input,
+.report-filters select {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid #dfe3ef;
+  border-radius: 13px;
+  outline: none;
+  color: #242a3b;
+  background: #ffffff;
+  font: inherit;
+}
+
+.report-filters input:focus,
+.report-filters select:focus {
+  border-color: #685cff;
+  box-shadow: 0 0 0 4px rgba(104, 92, 255, 0.1);
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.report-actions button {
+  min-width: 170px;
+}
+
+.report-statistics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.report-statistics article {
+  display: grid;
+  gap: 10px;
+  min-height: 110px;
+  padding: 20px;
+  border: 1px solid #e6e9f2;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.report-statistics span {
+  color: #70788d;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.report-statistics strong {
+  color: #1d2233;
+  font-size: 1.25rem;
+}
+
+.report-statistics .approved-report-stat {
+  border-color: #bcebd9;
+  background: linear-gradient(135deg, #effbf6, #e7f9f1);
+}
+
+.approved-report-stat span,
+.approved-report-stat strong {
+  color: #117557;
+}
+
+.report-summary {
+  margin-top: 28px;
+}
+
+.report-summary h3 {
+  margin: 0 0 16px;
+  color: #1d2233;
+  font-size: 1.15rem;
+}
+
+.report-table {
+  min-width: 700px;
+}
+
+@media (max-width: 1150px) {
+  .report-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .report-statistics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .report-filters,
+  .report-statistics {
+    grid-template-columns: 1fr;
+  }
+
+  .report-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .report-actions button {
+    width: 100%;
+  }
+}
