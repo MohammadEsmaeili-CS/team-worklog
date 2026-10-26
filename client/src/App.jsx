@@ -154,11 +154,11 @@ function App() {
     return (
       <main className="auth-page" dir="rtl">
         <section className="brand-panel">
-          <div className="brand-mark">TS</div>
+          <div className="brand-mark">ک</div>
 
           <div>
-            <p className="eyebrow">Team System</p>
-            <h1>سامانه مدیریت فعالیت تیم</h1>
+            <p className="eyebrow">KARNAMA</p>
+            <h1>کارنما</h1>
             <p className="brand-description">
               ثبت فعالیت، محاسبه زمان و تأیید شفاف عملکرد
               اعضای تیم در یک محیط یکپارچه.
@@ -381,10 +381,10 @@ function App() {
     <main className="dashboard-shell" dir="rtl">
       <header className="dashboard-header">
         <div className="dashboard-brand">
-          <div className="brand-mark small">TS</div>
+          <div className="brand-mark small">ک</div>
 
           <div>
-            <strong>سامانه مدیریت فعالیت تیم</strong>
+            <strong>کارنما</strong>
             <span>
               {roleLabels[user.role] || user.role}
             </span>

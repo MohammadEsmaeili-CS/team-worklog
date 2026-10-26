@@ -56,7 +56,7 @@ router.get('/:projectId/members', async (request, response) => {
   try {
     const projectResult = await pool.query(
       `
-        SELECT id, title
+        SELECT id, title, status
         FROM projects
         WHERE id = $1
         LIMIT 1
@@ -134,7 +134,7 @@ router.put('/:projectId/members', async (request, response) => {
 
     const projectResult = await client.query(
       `
-        SELECT id, title
+        SELECT id, title, status
         FROM projects
         WHERE id = $1
         LIMIT 1
@@ -147,6 +147,13 @@ router.put('/:projectId/members', async (request, response) => {
 
       return response.status(404).json({
         message: 'پروژه پیدا نشد.',
+      });
+    }
+
+    if (projectResult.rows[0].status !== 'active') {
+      await client.query('ROLLBACK');
+      return response.status(409).json({
+        message: 'اعضای پروژه تکمیل‌شده یا بایگانی‌شده قابل تغییر نیستند.',
       });
     }
 

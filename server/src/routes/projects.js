@@ -89,6 +89,7 @@ router.get('/', async (request, response) => {
           INNER JOIN project_members pm
             ON pm.project_id = p.id
           WHERE pm.user_id = $1
+            AND p.status = 'active'
           ORDER BY p.created_at DESC
         `,
         [request.user.id],
@@ -176,6 +177,106 @@ router.post('/', requireManager, async (request, response) => {
     return response.status(500).json({
       message: 'ایجاد پروژه انجام نشد.',
     });
+  }
+});
+
+const projectStatusSchema = z.object({
+  status: z.enum(['active', 'completed', 'archived']),
+});
+
+router.patch('/:projectId/status', requireManager, async (request, response) => {
+  const projectId = Number.parseInt(request.params.projectId, 10);
+
+  if (!Number.isInteger(projectId) || projectId <= 0) {
+    return response.status(400).json({ message: 'شناسه پروژه معتبر نیست.' });
+  }
+
+  const validation = projectStatusSchema.safeParse(request.body);
+
+  if (!validation.success) {
+    return response.status(400).json({ message: 'وضعیت پروژه معتبر نیست.' });
+  }
+
+  try {
+    const result = await pool.query(
+      `
+        UPDATE projects
+        SET status = $1, updated_at = NOW()
+        WHERE id = $2
+        RETURNING id, title, description, status, start_date, end_date, updated_at
+      `,
+      [validation.data.status, projectId],
+    );
+
+    if (result.rowCount === 0) {
+      return response.status(404).json({ message: 'پروژه پیدا نشد.' });
+    }
+
+    const messages = {
+      active: 'پروژه دوباره فعال شد.',
+      completed: 'پروژه به‌عنوان تکمیل‌شده ثبت شد.',
+      archived: 'پروژه بایگانی شد و دیگر فعالیت جدید نمی‌پذیرد.',
+    };
+
+    return response.json({
+      message: messages[validation.data.status],
+      project: result.rows[0],
+    });
+  } catch (error) {
+    console.error('Project status update failed:', error.message);
+    return response.status(500).json({ message: 'تغییر وضعیت پروژه انجام نشد.' });
+  }
+});
+
+router.delete('/:projectId', requireManager, async (request, response) => {
+  const projectId = Number.parseInt(request.params.projectId, 10);
+
+  if (!Number.isInteger(projectId) || projectId <= 0) {
+    return response.status(400).json({ message: 'شناسه پروژه معتبر نیست.' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+    const projectResult = await client.query(
+      `SELECT id, title FROM projects WHERE id = $1 FOR UPDATE`,
+      [projectId],
+    );
+
+    if (projectResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return response.status(404).json({ message: 'پروژه پیدا نشد.' });
+    }
+
+    const usageResult = await client.query(
+      `
+        SELECT
+          (SELECT COUNT(*)::INTEGER FROM project_members WHERE project_id = $1) AS member_count,
+          (SELECT COUNT(*)::INTEGER FROM time_entries WHERE project_id = $1) AS entry_count
+      `,
+      [projectId],
+    );
+
+    const usage = usageResult.rows[0];
+
+    if (usage.member_count > 0 || usage.entry_count > 0) {
+      await client.query('ROLLBACK');
+      return response.status(409).json({
+        message: 'این پروژه عضو یا فعالیت ثبت‌شده دارد و فقط قابل بایگانی است.',
+      });
+    }
+
+    await client.query('DELETE FROM projects WHERE id = $1', [projectId]);
+    await client.query('COMMIT');
+
+    return response.json({ message: 'پروژه خالی به‌صورت دائمی حذف شد.' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Project deletion failed:', error.message);
+    return response.status(500).json({ message: 'حذف پروژه انجام نشد.' });
+  } finally {
+    client.release();
   }
 });
 

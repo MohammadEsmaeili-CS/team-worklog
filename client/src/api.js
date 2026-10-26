@@ -61,4 +61,10 @@ export const api = {
       body,
     });
   },
+
+  delete(path) {
+    return request(path, {
+      method: 'DELETE',
+    });
+  },
 };

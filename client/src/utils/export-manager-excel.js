@@ -251,8 +251,8 @@ export async function exportManagerExcel({
 }) {
   const workbook = new ExcelJS.Workbook();
 
-  workbook.creator = 'Team Worklog System';
-  workbook.company = 'Team System';
+  workbook.creator = 'کارنما';
+  workbook.company = 'کارنما';
   workbook.created = new Date();
   workbook.modified = new Date();
 

@@ -1,21 +1,27 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { api } from '../api';
-import ManagerReports from './ManagerReports';
+import { api } from "../api";
+import ManagerReports from "./ManagerReports";
 
 const statusLabels = {
-  draft: 'پیش‌نویس',
-  submitted: 'منتظر تأیید',
-  partially_approved: 'تأیید یک مدیر',
-  approved: 'تأیید نهایی',
-  rejected: 'ردشده',
+  draft: "پیش‌نویس",
+  submitted: "منتظر تأیید",
+  partially_approved: "تأیید یک مدیر",
+  approved: "تأیید نهایی",
+  rejected: "ردشده",
+};
+
+const projectStatusLabels = {
+  active: "فعال",
+  completed: "تکمیل‌شده",
+  archived: "بایگانی‌شده",
 };
 
 const initialProjectForm = {
-  title: '',
-  description: '',
-  startDate: '',
-  endDate: '',
+  title: "",
+  description: "",
+  startDate: "",
+  endDate: "",
 };
 
 function formatDuration(totalMinutes = 0) {
@@ -33,32 +39,27 @@ function formatDuration(totalMinutes = 0) {
   return `${minutes} دقیقه`;
 }
 
-function ManagerDashboard({
-  user,
-  onLogout,
-  logoutPending,
-}) {
+function ManagerDashboard({ user, onLogout, logoutPending }) {
   const [projects, setProjects] = useState([]);
   const [availableMembers, setAvailableMembers] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [lifecycleRequests, setLifecycleRequests] = useState([]);
   const [pendingUsers, setPendingUsers] = useState([]);
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [timeEntries, setTimeEntries] = useState([]);
-  const [projectForm, setProjectForm] =
-    useState(initialProjectForm);
-  const [selectedProjectId, setSelectedProjectId] =
-    useState('');
-  const [selectedMemberIds, setSelectedMemberIds] =
-    useState([]);
+  const [projectForm, setProjectForm] = useState(initialProjectForm);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedMemberIds, setSelectedMemberIds] = useState([]);
   const [approvalNotes, setApprovalNotes] = useState({});
   const [passwordResetForm, setPasswordResetForm] = useState({
-  userId: '',
-  temporaryPassword: '',
-  confirmPassword: '',
-});
+    userId: "",
+    temporaryPassword: "",
+    confirmPassword: "",
+  });
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -68,12 +69,16 @@ function ManagerDashboard({
         pendingUsersResult,
         approvalsResult,
         entriesResult,
+        allMembersResult,
+        lifecycleResult,
       ] = await Promise.all([
-        api.get('/projects'),
-        api.get('/projects/available-members'),
-        api.get('/manager/users/pending'),
-        api.get('/approvals/pending'),
-        api.get('/time-entries'),
+        api.get("/projects"),
+        api.get("/projects/available-members"),
+        api.get("/manager/users/pending"),
+        api.get("/approvals/pending"),
+        api.get("/time-entries"),
+        api.get("/manager/users"),
+        api.get("/manager/users/lifecycle-requests"),
       ]);
 
       setProjects(projectsResult.projects);
@@ -81,9 +86,12 @@ function ManagerDashboard({
       setPendingUsers(pendingUsersResult.users);
       setPendingApprovals(approvalsResult.timeEntries);
       setTimeEntries(entriesResult.timeEntries);
+      setMembers(allMembersResult.users);
+      setLifecycleRequests(lifecycleResult.requests);
 
       const firstProjectId =
-        projectsResult.projects[0]?.id ?? '';
+        projectsResult.projects.find((project) => project.status === "active")
+          ?.id ?? "";
 
       setSelectedProjectId(firstProjectId);
 
@@ -93,9 +101,7 @@ function ManagerDashboard({
         );
 
         setSelectedMemberIds(
-          projectMembersResult.members.map(
-            (member) => String(member.id),
-          ),
+          projectMembersResult.members.map((member) => String(member.id)),
         );
       } else {
         setSelectedMemberIds([]);
@@ -114,25 +120,18 @@ function ManagerDashboard({
 
   const statistics = useMemo(() => {
     const totalMinutes = timeEntries.reduce(
-      (sum, entry) =>
-        sum + (entry.duration_minutes ?? 0),
+      (sum, entry) => sum + (entry.duration_minutes ?? 0),
       0,
     );
 
     return {
       totalMinutes,
-      activeProjects: projects.filter(
-        (project) => project.status === 'active',
-      ).length,
+      activeProjects: projects.filter((project) => project.status === "active")
+        .length,
       pendingApprovals: pendingApprovals.length,
       pendingUsers: pendingUsers.length,
     };
-  }, [
-    pendingApprovals.length,
-    pendingUsers.length,
-    projects,
-    timeEntries,
-  ]);
+  }, [pendingApprovals.length, pendingUsers.length, projects, timeEntries]);
 
   function updateProjectForm(event) {
     const { name, value } = event.target;
@@ -154,17 +153,13 @@ function ManagerDashboard({
     setSelectedProjectId(projectId);
     setSelectedMemberIds([]);
     setWorking(true);
-    setMessage('');
-    setError('');
+    setMessage("");
+    setError("");
 
     try {
-      const result = await api.get(
-        `/projects/${projectId}/members`,
-      );
+      const result = await api.get(`/projects/${projectId}/members`);
 
-      setSelectedMemberIds(
-        result.members.map((member) => String(member.id)),
-      );
+      setSelectedMemberIds(result.members.map((member) => String(member.id)));
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -177,9 +172,7 @@ function ManagerDashboard({
 
     setSelectedMemberIds((currentIds) => {
       if (currentIds.includes(normalizedId)) {
-        return currentIds.filter(
-          (currentId) => currentId !== normalizedId,
-        );
+        return currentIds.filter((currentId) => currentId !== normalizedId);
       }
 
       return [...currentIds, normalizedId];
@@ -189,11 +182,11 @@ function ManagerDashboard({
   async function createProject(event) {
     event.preventDefault();
     setWorking(true);
-    setMessage('');
-    setError('');
+    setMessage("");
+    setError("");
 
     try {
-      const result = await api.post('/projects', {
+      const result = await api.post("/projects", {
         title: projectForm.title,
         description: projectForm.description,
         startDate: projectForm.startDate || null,
@@ -216,16 +209,13 @@ function ManagerDashboard({
     }
 
     setWorking(true);
-    setMessage('');
-    setError('');
+    setMessage("");
+    setError("");
 
     try {
-      const result = await api.put(
-        `/projects/${selectedProjectId}/members`,
-        {
-          memberIds: selectedMemberIds.map(Number),
-        },
-      );
+      const result = await api.put(`/projects/${selectedProjectId}/members`, {
+        memberIds: selectedMemberIds.map(Number),
+      });
 
       setMessage(result.message);
       await loadDashboard();
@@ -238,17 +228,14 @@ function ManagerDashboard({
 
   async function reviewUser(userId, decision) {
     setWorking(true);
-    setMessage('');
-    setError('');
+    setMessage("");
+    setError("");
 
     try {
-      const result = await api.patch(
-        `/manager/users/${userId}/review`,
-        {
-          decision,
-          note: '',
-        },
-      );
+      const result = await api.patch(`/manager/users/${userId}/review`, {
+        decision,
+        note: "",
+      });
 
       setMessage(result.message);
       await loadDashboard();
@@ -259,74 +246,69 @@ function ManagerDashboard({
     }
   }
 
-async function resetMemberPassword(event) {
-  event.preventDefault();
+  async function resetMemberPassword(event) {
+    event.preventDefault();
 
-  if (!passwordResetForm.userId) {
-    setError('ابتدا عضو موردنظر را انتخاب کنید.');
-    return;
-  }
+    if (!passwordResetForm.userId) {
+      setError("ابتدا عضو موردنظر را انتخاب کنید.");
+      return;
+    }
 
-  if (passwordResetForm.temporaryPassword.length < 8) {
-    setError('رمز موقت باید حداقل 8 کاراکتر باشد.');
-    return;
-  }
+    if (passwordResetForm.temporaryPassword.length < 8) {
+      setError("رمز موقت باید حداقل 8 کاراکتر باشد.");
+      return;
+    }
 
-  if (
-    passwordResetForm.temporaryPassword !==
-    passwordResetForm.confirmPassword
-  ) {
-    setError('رمز موقت و تکرار آن یکسان نیستند.');
-    return;
-  }
-
-  setWorking(true);
-  setMessage('');
-  setError('');
-
-  try {
-   const result = await api.patch(
-  `/manager/users/${passwordResetForm.userId}/password`,
-  {
-    temporaryPassword:
-      passwordResetForm.temporaryPassword,
-  },
-);
-
-    setMessage(result.message);
-
-    setPasswordResetForm({
-      userId: '',
-      temporaryPassword: '',
-      confirmPassword: '',
-    });
-  } catch (requestError) {
-    setError(requestError.message);
-  } finally {
-    setWorking(false);
-  }
-}
-
-  async function reviewEntry(entryId, decision) {
-    const note = approvalNotes[entryId] ?? '';
-
-    if (decision === 'reject' && !note.trim()) {
-      setError('برای رد فعالیت، دلیل رد را وارد کنید.');
+    if (
+      passwordResetForm.temporaryPassword !== passwordResetForm.confirmPassword
+    ) {
+      setError("رمز موقت و تکرار آن یکسان نیستند.");
       return;
     }
 
     setWorking(true);
-    setMessage('');
-    setError('');
+    setMessage("");
+    setError("");
 
     try {
-      const result = await api.post(
-        `/approvals/${entryId}`,
+      const result = await api.patch(
+        `/manager/users/${passwordResetForm.userId}/password`,
         {
-          decision,
-          note,
+          temporaryPassword: passwordResetForm.temporaryPassword,
         },
       );
+
+      setMessage(result.message);
+
+      setPasswordResetForm({
+        userId: "",
+        temporaryPassword: "",
+        confirmPassword: "",
+      });
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function reviewEntry(entryId, decision) {
+    const note = approvalNotes[entryId] ?? "";
+
+    if (decision === "reject" && !note.trim()) {
+      setError("برای رد فعالیت، دلیل رد را وارد کنید.");
+      return;
+    }
+
+    setWorking(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const result = await api.post(`/approvals/${entryId}`, {
+        decision,
+        note,
+      });
 
       setMessage(result.message);
 
@@ -336,6 +318,84 @@ async function resetMemberPassword(event) {
         return nextNotes;
       });
 
+      await loadDashboard();
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function updateProjectStatus(project, status) {
+    const actionLabel = projectStatusLabels[status];
+    if (!window.confirm(`وضعیت پروژه «${project.title}» به «${actionLabel}» تغییر کند؟`)) {
+      return;
+    }
+
+    setWorking(true);
+    setMessage("");
+    setError("");
+    try {
+      const result = await api.patch(`/projects/${project.id}/status`, { status });
+      setMessage(result.message);
+      await loadDashboard();
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function deleteProject(project) {
+    if (!window.confirm(`پروژه «${project.title}» برای همیشه حذف شود؟ این کار فقط برای پروژه خالی ممکن است.`)) {
+      return;
+    }
+
+    setWorking(true);
+    setMessage("");
+    setError("");
+    try {
+      const result = await api.delete(`/projects/${project.id}`);
+      setMessage(result.message);
+      await loadDashboard();
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function requestMemberLifecycle(member, action) {
+    const verb = action === "suspend" ? "غیرفعال" : "دوباره فعال";
+    if (!window.confirm(`حساب «${member.full_name}» ${verb} شود؟ تأیید مدیر دوم نیز لازم است.`)) {
+      return;
+    }
+
+    setWorking(true);
+    setMessage("");
+    setError("");
+    try {
+      const result = await api.post(`/manager/users/${member.id}/lifecycle-requests`, { action });
+      setMessage(result.message);
+      await loadDashboard();
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function confirmLifecycleRequest(requestId) {
+    if (!window.confirm("این درخواست را به‌عنوان مدیر دوم تأیید می‌کنید؟")) {
+      return;
+    }
+
+    setWorking(true);
+    setMessage("");
+    setError("");
+    try {
+      const result = await api.post(`/manager/users/lifecycle-requests/${requestId}/confirm`, {});
+      setMessage(result.message);
       await loadDashboard();
     } catch (requestError) {
       setError(requestError.message);
@@ -357,10 +417,10 @@ async function resetMemberPassword(event) {
     <main className="dashboard-shell manager-dashboard" dir="rtl">
       <header className="dashboard-header">
         <div className="dashboard-brand">
-          <div className="brand-mark small">TS</div>
+          <div className="brand-mark small">ک</div>
 
           <div>
-            <strong>سامانه مدیریت فعالیت تیم</strong>
+            <strong>کارنما</strong>
             <span>پنل مدیریت</span>
           </div>
         </div>
@@ -388,37 +448,27 @@ async function resetMemberPassword(event) {
             <p className="eyebrow">مرکز مدیریت</p>
             <h1>سلام {user.fullName}</h1>
             <p>
-              پروژه‌ها، اعضا و فعالیت‌های ثبت‌شده تیم را
-              از این صفحه مدیریت و بررسی کنید.
+              پروژه‌ها، اعضا و فعالیت‌های ثبت‌شده تیم را از این صفحه مدیریت و
+              بررسی کنید.
             </p>
           </div>
 
           <div className="manager-access-badge">
             <strong>دسترسی مدیریتی</strong>
-            <span>
-              مشاهده فعالیت تمام اعضا و ثبت تصمیم‌های تأیید
-            </span>
+            <span>مشاهده فعالیت تمام اعضا و ثبت تصمیم‌های تأیید</span>
           </div>
         </section>
 
         {message && (
-          <div className="alert success dashboard-alert">
-            {message}
-          </div>
+          <div className="alert success dashboard-alert">{message}</div>
         )}
 
-        {error && (
-          <div className="alert error dashboard-alert">
-            {error}
-          </div>
-        )}
+        {error && <div className="alert error dashboard-alert">{error}</div>}
 
         <section className="stats-grid">
           <article className="stat-card manager-primary-stat">
             <span>کل زمان ثبت‌شده</span>
-            <strong>
-              {formatDuration(statistics.totalMinutes)}
-            </strong>
+            <strong>{formatDuration(statistics.totalMinutes)}</strong>
           </article>
 
           <article className="stat-card">
@@ -457,48 +507,31 @@ async function resetMemberPassword(event) {
             ) : (
               <div className="approval-list">
                 {pendingApprovals.map((entry) => (
-                  <article
-                    className="approval-card"
-                    key={entry.id}
-                  >
+                  <article className="approval-card" key={entry.id}>
                     <div className="approval-main">
                       <div>
                         <strong>{entry.title}</strong>
-                        <p>
-                          {entry.description || 'بدون توضیح'}
-                        </p>
+                        <p>{entry.description || "بدون توضیح"}</p>
                       </div>
 
-                      <span
-                        className={`status-badge ${entry.status}`}
-                      >
+                      <span className={`status-badge ${entry.status}`}>
                         {entry.approval_count} از ۲ تأیید
                       </span>
                     </div>
 
                     <div className="approval-meta">
+                      <span>عضو: {entry.member_name}</span>
+                      <span>پروژه: {entry.project_title}</span>
                       <span>
-                        عضو: {entry.member_name}
-                      </span>
-                      <span>
-                        پروژه: {entry.project_title}
-                      </span>
-                      <span>
-                        زمان:{' '}
-                        {formatDuration(
-                          entry.duration_minutes,
-                        )}
+                        زمان: {formatDuration(entry.duration_minutes)}
                       </span>
                       <span>تاریخ: {entry.work_date}</span>
                     </div>
 
                     <textarea
-                      value={approvalNotes[entry.id] ?? ''}
+                      value={approvalNotes[entry.id] ?? ""}
                       onChange={(event) =>
-                        updateApprovalNote(
-                          entry.id,
-                          event.target.value,
-                        )
+                        updateApprovalNote(entry.id, event.target.value)
                       }
                       placeholder="یادداشت مدیر یا دلیل رد فعالیت"
                       rows="2"
@@ -508,9 +541,7 @@ async function resetMemberPassword(event) {
                       <button
                         type="button"
                         className="approve-button"
-                        onClick={() =>
-                          reviewEntry(entry.id, 'approve')
-                        }
+                        onClick={() => reviewEntry(entry.id, "approve")}
                         disabled={working}
                       >
                         تأیید فعالیت
@@ -519,9 +550,7 @@ async function resetMemberPassword(event) {
                       <button
                         type="button"
                         className="reject-button"
-                        onClick={() =>
-                          reviewEntry(entry.id, 'reject')
-                        }
+                        onClick={() => reviewEntry(entry.id, "reject")}
                         disabled={working}
                       >
                         رد فعالیت
@@ -540,9 +569,7 @@ async function resetMemberPassword(event) {
                 <h2>در انتظار فعال‌سازی</h2>
               </div>
 
-              <span className="count-badge">
-                {pendingUsers.length} نفر
-              </span>
+              <span className="count-badge">{pendingUsers.length} نفر</span>
             </div>
 
             {pendingUsers.length === 0 ? (
@@ -552,30 +579,36 @@ async function resetMemberPassword(event) {
             ) : (
               <div className="pending-users-list">
                 {pendingUsers.map((pendingUser) => (
-                  <article
-                    className="pending-user-card"
-                    key={pendingUser.id}
-                  >
-                    <div>
-                      <strong>
+                  <article className="pending-user-card" key={pendingUser.id}>
+                    <div className="pending-user-identity">
+                      <div className="pending-user-name">
                         {pendingUser.full_name}
-                      </strong>
-                      <span>
-                        @{pendingUser.username}
-                      </span>
-                      <span>{pendingUser.email}</span>
+                      </div>
+
+                      <div className="pending-user-field">
+                        <span>نام کاربری:</span>
+                        <bdi dir="ltr">{pendingUser.username}</bdi>
+                      </div>
+
+                      <div className="pending-user-field">
+                        <span>ایمیل:</span>
+                        <bdi dir="ltr">{pendingUser.email}</bdi>
+                      </div>
                     </div>
 
-                    <div>
+                    <div
+                      className="pending-user-actions"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        flexShrink: 0,
+                      }}
+                    >
                       <button
                         type="button"
                         className="approve-button small"
-                        onClick={() =>
-                          reviewUser(
-                            pendingUser.id,
-                            'approve',
-                          )
-                        }
+                        onClick={() => reviewUser(pendingUser.id, "approve")}
                         disabled={working}
                       >
                         تأیید
@@ -584,12 +617,7 @@ async function resetMemberPassword(event) {
                       <button
                         type="button"
                         className="reject-button small"
-                        onClick={() =>
-                          reviewUser(
-                            pendingUser.id,
-                            'reject',
-                          )
-                        }
+                        onClick={() => reviewUser(pendingUser.id, "reject")}
                         disabled={working}
                       >
                         رد
@@ -611,10 +639,7 @@ async function resetMemberPassword(event) {
               </div>
             </div>
 
-            <form
-              className="dashboard-form"
-              onSubmit={createProject}
-            >
+            <form className="dashboard-form" onSubmit={createProject}>
               <label>
                 عنوان پروژه
                 <input
@@ -677,9 +702,9 @@ async function resetMemberPassword(event) {
               </div>
             </div>
 
-            {projects.length === 0 ? (
+            {projects.filter((project) => project.status === "active").length === 0 ? (
               <div className="empty-state compact">
-                <p>ابتدا یک پروژه ایجاد کنید.</p>
+                <p>برای اختصاص عضو، ابتدا یک پروژه فعال ایجاد کنید.</p>
               </div>
             ) : (
               <>
@@ -687,15 +712,12 @@ async function resetMemberPassword(event) {
                   پروژه
                   <select
                     value={selectedProjectId}
-                    onChange={(event) =>
-                      chooseProject(event.target.value)
-                    }
+                    onChange={(event) => chooseProject(event.target.value)}
                   >
-                    {projects.map((project) => (
-                      <option
-                        key={project.id}
-                        value={project.id}
-                      >
+                    {projects
+                      .filter((project) => project.status === "active")
+                      .map((project) => (
+                      <option key={project.id} value={project.id}>
                         {project.title}
                       </option>
                     ))}
@@ -707,31 +729,32 @@ async function resetMemberPassword(event) {
                     <p>عضو فعالی وجود ندارد.</p>
                   ) : (
                     availableMembers.map((member) => {
-                      const selected =
-                        selectedMemberIds.includes(
-                          String(member.id),
-                        );
+                      const selected = selectedMemberIds.includes(
+                        String(member.id),
+                      );
 
                       return (
                         <label
                           className={`member-checkbox ${
-                            selected ? 'selected' : ''
+                            selected ? "selected" : ""
                           }`}
                           key={member.id}
                         >
                           <input
                             type="checkbox"
                             checked={selected}
-                            onChange={() =>
-                              toggleMember(member.id)
-                            }
+                            onChange={() => toggleMember(member.id)}
                           />
 
-                          <div>
-                            <strong>
+                          <div className="member-checkbox-info">
+                            <div className="member-checkbox-name">
                               {member.full_name}
-                            </strong>
-                            <span>@{member.username}</span>
+                            </div>
+
+                            <div className="member-checkbox-username">
+                              <span>نام کاربری:</span>
+                              <bdi dir="ltr">{member.username}</bdi>
+                            </div>
                           </div>
                         </label>
                       );
@@ -747,107 +770,214 @@ async function resetMemberPassword(event) {
                 >
                   ذخیره اعضای پروژه
                 </button>
+                <p className="management-help">
+                  برداشتن تیک یک عضو فقط دسترسی او به پروژه را قطع می‌کند؛ سوابق
+                  فعالیت و زمان‌های قبلی حذف نمی‌شوند.
+                </p>
               </>
             )}
           </article>
         </section>
 
-<ManagerReports timeEntries={timeEntries} />
+        <section className="management-center panel-card">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">کنترل پروژه‌ها</p>
+              <h2>وضعیت و بایگانی پروژه</h2>
+            </div>
+            <span className="count-badge">{projects.length} پروژه</span>
+          </div>
 
-<section className="panel-card password-reset-panel">
-  <div className="panel-heading">
-    <div>
-      <span className="eyebrow">امنیت حساب اعضا</span>
-      <h2>بازنشانی رمز عبور</h2>
-    </div>
+          <div className="project-lifecycle-grid">
+            {projects.map((project) => (
+              <article className="lifecycle-card" key={project.id}>
+                <div className="lifecycle-card-head">
+                  <div>
+                    <strong>{project.title}</strong>
+                    <span>{project.member_count} عضو</span>
+                  </div>
+                  <span className={`project-status ${project.status}`}>
+                    {projectStatusLabels[project.status] ?? project.status}
+                  </span>
+                </div>
+                <p>{project.description || "بدون توضیح"}</p>
+                <div className="lifecycle-actions">
+                  {project.status === "active" ? (
+                    <>
+                      <button type="button" className="soft-button" disabled={working} onClick={() => updateProjectStatus(project, "completed")}>
+                        ثبت اتمام
+                      </button>
+                      <button type="button" className="secondary-button" disabled={working} onClick={() => updateProjectStatus(project, "archived")}>
+                        بایگانی
+                      </button>
+                    </>
+                  ) : (
+                    <button type="button" className="soft-button" disabled={working} onClick={() => updateProjectStatus(project, "active")}>
+                      فعال‌سازی مجدد
+                    </button>
+                  )}
+                  <button type="button" className="danger-link" disabled={working} onClick={() => deleteProject(project)}>
+                    حذف دائمی پروژه خالی
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
 
-    <span className="count-badge">
-      {availableMembers.length} عضو
-    </span>
-  </div>
+        <section className="management-center panel-card">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">کنترل دسترسی اعضا</p>
+              <h2>فعال یا غیرفعال‌سازی حساب</h2>
+            </div>
+            <span className="count-badge">تأیید دو مدیر</span>
+          </div>
 
-  <form
-    className="dashboard-form"
-    onSubmit={resetMemberPassword}
-  >
-    <label>
-      عضو
-      <select
-        value={passwordResetForm.userId}
-        onChange={(event) =>
-          setPasswordResetForm((currentForm) => ({
-            ...currentForm,
-            userId: event.target.value,
-          }))
-        }
-        disabled={working}
-      >
-        <option value="">عضو را انتخاب کنید</option>
+          {lifecycleRequests.length > 0 && (
+            <div className="lifecycle-request-list">
+              {lifecycleRequests.map((item) => {
+                const mine = String(item.requested_by) === String(user.id);
+                return (
+                  <article className="lifecycle-request" key={item.id}>
+                    <div>
+                      <strong>{item.member_name}</strong>
+                      <span>
+                        درخواست {item.requested_action === "suspend" ? "غیرفعال‌سازی" : "فعال‌سازی مجدد"} توسط {item.requested_by_name}
+                      </span>
+                    </div>
+                    {mine ? (
+                      <span className="waiting-chip">منتظر مدیر دوم</span>
+                    ) : (
+                      <button type="button" className="approve-button small" disabled={working} onClick={() => confirmLifecycleRequest(item.id)}>
+                        تأیید مدیر دوم
+                      </button>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
 
-        {availableMembers.map((member) => (
-          <option value={member.id} key={member.id}>
-            {member.full_name} ({member.username})
-          </option>
-        ))}
-      </select>
-    </label>
+          <div className="member-management-grid">
+            {members.map((member) => {
+              const pendingRequest = lifecycleRequests.find(
+                (item) => String(item.user_id) === String(member.id),
+              );
+              return (
+                <article className="member-management-card" key={member.id}>
+                  <div className="member-avatar">{member.full_name?.trim()?.slice(0, 1) || "ع"}</div>
+                  <div className="member-management-info">
+                    <strong>{member.full_name}</strong>
+                    <bdi dir="ltr">@{member.username}</bdi>
+                    <span>{member.project_count} پروژه · {member.entry_count} فعالیت · {formatDuration(member.total_minutes)}</span>
+                  </div>
+                  <span className={`account-chip ${member.account_status}`}>
+                    {member.account_status === "active" ? "فعال" : "غیرفعال"}
+                  </span>
+                  <button
+                    type="button"
+                    className={member.account_status === "active" ? "reject-button small" : "approve-button small"}
+                    disabled={working || Boolean(pendingRequest)}
+                    onClick={() => requestMemberLifecycle(member, member.account_status === "active" ? "suspend" : "reactivate")}
+                  >
+                    {pendingRequest ? "در انتظار تأیید" : member.account_status === "active" ? "درخواست غیرفعال‌سازی" : "درخواست فعال‌سازی"}
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        </section>
 
-    <div className="form-row">
-      <label>
-        رمز موقت جدید
-        <input
-          type="password"
-          value={passwordResetForm.temporaryPassword}
-          onChange={(event) =>
-            setPasswordResetForm((currentForm) => ({
-              ...currentForm,
-              temporaryPassword: event.target.value,
-            }))
-          }
-          minLength="8"
-          maxLength="100"
-          autoComplete="new-password"
-          placeholder="حداقل 8 کاراکتر"
-          disabled={working}
-        />
-      </label>
+        <ManagerReports timeEntries={timeEntries} />
 
-      <label>
-        تکرار رمز موقت
-        <input
-          type="password"
-          value={passwordResetForm.confirmPassword}
-          onChange={(event) =>
-            setPasswordResetForm((currentForm) => ({
-              ...currentForm,
-              confirmPassword: event.target.value,
-            }))
-          }
-          minLength="8"
-          maxLength="100"
-          autoComplete="new-password"
-          placeholder="رمز موقت را دوباره وارد کنید"
-          disabled={working}
-        />
-      </label>
-    </div>
+        <section className="panel-card password-reset-panel">
+          <div className="panel-heading">
+            <div>
+              <span className="eyebrow">امنیت حساب اعضا</span>
+              <h2>بازنشانی رمز عبور</h2>
+            </div>
 
-    <p className="password-reset-help">
-      پس از بازنشانی، رمز موقت را به‌صورت خصوصی به عضو
-      بدهید. عضو باید بعد از ورود، رمز شخصی جدیدی انتخاب کند.
-    </p>
+            <span className="count-badge">{availableMembers.length} عضو</span>
+          </div>
 
-    <button
-      className="primary-button full-width"
-      type="submit"
-      disabled={working || availableMembers.length === 0}
-    >
-      {working
-        ? 'در حال بازنشانی...'
-        : 'بازنشانی رمز عضو'}
-    </button>
-  </form>
-</section>
+          <form className="dashboard-form" onSubmit={resetMemberPassword}>
+            <label>
+              عضو
+              <select
+                value={passwordResetForm.userId}
+                onChange={(event) =>
+                  setPasswordResetForm((currentForm) => ({
+                    ...currentForm,
+                    userId: event.target.value,
+                  }))
+                }
+                disabled={working}
+              >
+                <option value="">عضو را انتخاب کنید</option>
+
+                {availableMembers.map((member) => (
+                  <option value={member.id} key={member.id}>
+                    {member.full_name} ({member.username})
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="form-row">
+              <label>
+                رمز موقت جدید
+                <input
+                  type="password"
+                  value={passwordResetForm.temporaryPassword}
+                  onChange={(event) =>
+                    setPasswordResetForm((currentForm) => ({
+                      ...currentForm,
+                      temporaryPassword: event.target.value,
+                    }))
+                  }
+                  minLength="8"
+                  maxLength="100"
+                  autoComplete="new-password"
+                  placeholder="حداقل 8 کاراکتر"
+                  disabled={working}
+                />
+              </label>
+
+              <label>
+                تکرار رمز موقت
+                <input
+                  type="password"
+                  value={passwordResetForm.confirmPassword}
+                  onChange={(event) =>
+                    setPasswordResetForm((currentForm) => ({
+                      ...currentForm,
+                      confirmPassword: event.target.value,
+                    }))
+                  }
+                  minLength="8"
+                  maxLength="100"
+                  autoComplete="new-password"
+                  placeholder="رمز موقت را دوباره وارد کنید"
+                  disabled={working}
+                />
+              </label>
+            </div>
+
+            <p className="password-reset-help">
+              پس از بازنشانی، رمز موقت را به‌صورت خصوصی به عضو بدهید. عضو باید
+              بعد از ورود، رمز شخصی جدیدی انتخاب کند.
+            </p>
+
+            <button
+              className="primary-button full-width"
+              type="submit"
+              disabled={working || availableMembers.length === 0}
+            >
+              {working ? "در حال بازنشانی..." : "بازنشانی رمز عضو"}
+            </button>
+          </form>
+        </section>
 
         <section className="panel-card entries-panel">
           <div className="panel-heading">
@@ -856,9 +986,7 @@ async function resetMemberPassword(event) {
               <h2>تمام فعالیت‌های اعضا</h2>
             </div>
 
-            <span className="count-badge">
-              {timeEntries.length} فعالیت
-            </span>
+            <span className="count-badge">{timeEntries.length} فعالیت</span>
           </div>
 
           {timeEntries.length === 0 ? (
@@ -886,43 +1014,28 @@ async function resetMemberPassword(event) {
                     <tr key={entry.id}>
                       <td>
                         <strong>{entry.member_name}</strong>
-                        <span>
-                          @{entry.member_username}
-                        </span>
+                        <span>@{entry.member_username}</span>
                       </td>
 
                       <td>
                         <strong>{entry.title}</strong>
-                        <span>
-                          {entry.description || 'بدون توضیح'}
-                        </span>
+                        <span>{entry.description || "بدون توضیح"}</span>
                       </td>
 
                       <td>{entry.project_title}</td>
                       <td>{entry.work_date}</td>
 
                       <td>
-                        {entry.entry_method === 'timer'
-                          ? 'زمان‌سنج'
-                          : 'دستی'}
+                        {entry.entry_method === "timer" ? "زمان‌سنج" : "دستی"}
                       </td>
 
-                      <td>
-                        {formatDuration(
-                          entry.duration_minutes ?? 0,
-                        )}
-                      </td>
+                      <td>{formatDuration(entry.duration_minutes ?? 0)}</td>
+
+                      <td>{entry.approval_count} از ۲</td>
 
                       <td>
-                        {entry.approval_count} از ۲
-                      </td>
-
-                      <td>
-                        <span
-                          className={`status-badge ${entry.status}`}
-                        >
-                          {statusLabels[entry.status] ||
-                            entry.status}
+                        <span className={`status-badge ${entry.status}`}>
+                          {statusLabels[entry.status] || entry.status}
                         </span>
                       </td>
                     </tr>

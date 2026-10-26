@@ -76,7 +76,7 @@ function ForcedPasswordChange({
     <main className="password-change-shell" dir="rtl">
       <section className="password-change-card">
         <header className="password-change-header">
-          <div className="brand-mark">TS</div>
+          <div className="brand-mark">ک</div>
 
           <div>
             <span className="eyebrow">امنیت حساب</span>

@@ -365,10 +365,10 @@ function MemberDashboard({
     <main className="dashboard-shell member-dashboard" dir="rtl">
       <header className="dashboard-header">
         <div className="dashboard-brand">
-          <div className="brand-mark small">TS</div>
+          <div className="brand-mark small">ک</div>
 
           <div>
-            <strong>سامانه مدیریت فعالیت تیم</strong>
+            <strong>کارنما</strong>
             <span>پنل عضو تیم</span>
           </div>
         </div>
@@ -717,29 +717,29 @@ function MemberDashboard({
                 <tbody>
                   {timeEntries.map((entry) => (
                     <tr key={entry.id}>
-                      <td>
+                      <td data-label="فعالیت">
                         <strong>{entry.title}</strong>
                         <span>
                           {entry.description || 'بدون توضیح'}
                         </span>
                       </td>
 
-                      <td>{entry.project_title}</td>
-                      <td>{entry.work_date}</td>
+                      <td data-label="پروژه">{entry.project_title}</td>
+                      <td data-label="تاریخ">{entry.work_date}</td>
 
-                      <td>
+                      <td data-label="روش ثبت">
                         {entry.entry_method === 'timer'
                           ? 'زمان‌سنج'
                           : 'دستی'}
                       </td>
 
-                      <td>
+                      <td data-label="مدت">
                         {formatDuration(
                           entry.duration_minutes ?? 0,
                         )}
                       </td>
 
-                      <td>
+                      <td data-label="وضعیت">
                         <span
                           className={`status-badge ${entry.status}`}
                         >
@@ -748,7 +748,7 @@ function MemberDashboard({
                         </span>
                       </td>
 
-                      <td>
+                      <td data-label="عملیات">
                         <div className="row-actions">
                           {entry.status !== 'approved' && (
                             <button

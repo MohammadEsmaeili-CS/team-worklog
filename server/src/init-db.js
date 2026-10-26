@@ -1,7 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { pool } from './db.js';
 
-const databaseFiles = ['schema.sql', 'auth-update.sql'];
+const databaseFiles = [
+  'schema.sql',
+  'auth-update.sql',
+  'lifecycle-update.sql',
+];
 
 try {
   for (const fileName of databaseFiles) {
