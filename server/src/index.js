@@ -8,6 +8,7 @@ import { pool } from './db.js';
 import authRouter from './routes/auth.js';
 
 const app = express();
+app.set('trust proxy', 1);
 const port = Number(process.env.PORT) || 4000;
 import sessionRouter from './routes/session.js';
 import managerUsersRouter from './routes/manager-users.js';
